@@ -1,22 +1,21 @@
 class WebSocketSocket {
   constructor(server, socket, connectionInfo) {
     this.server = server;
-    this.socket = socket;
-    this.connectionInfo = connectionInfo;
 
     socket.on("message", request => {
       try {
         request = JSON.parse(request);
+        request.data.id = this.id;
         this.server.emit(socket, request.event, request.data);
       } catch (err) {
-        this.server.emit(socket, request, null);
+        this.server.emit(socket, request, {id: this.id});
       }
     });
 
     this.watchdogInterval = setInterval(() => {
       if (socket.readyState !== 1) {
         clearInterval(this.watchdogInterval);
-        this.server.emit(socket, "close");
+        this.server.emit(socket, "close", {id: this.id});
         this.server.removeSocket(this.id);
       }
     }, 1000);
