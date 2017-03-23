@@ -1,6 +1,32 @@
+class WebSocketSocket {
+  constructor(server, socket, connectionInfo) {
+    this.server = server;
+    this.socket = socket;
+    this.connectionInfo = connectionInfo;
+
+    socket.on("message", request => {
+      try {
+        request = JSON.parse(request);
+        this.server.emit(socket, request.event, request.data);
+      } catch (err) {
+        this.server.emit(socket, request, null);
+      }
+    });
+
+    this.watchdogInterval = setInterval(() => {
+      if (socket.readyState !== 1) {
+        clearInterval(this.watchdogInterval);
+        this.server.emit(socket, "close");
+        this.server.removeSocket(this.id);
+      }
+    }, 1000);
+  }
+}
+
 class WebSocketServer {
   constructor(options) {
     this.events = {};
+    this.sockets = [];
 
     this.server = new (require("ws")).Server(options);
     this.server.on("connection", socket => this.onConnection(socket));
@@ -23,26 +49,25 @@ class WebSocketServer {
       }
     }
 
-    this.emit(socket, "connection", info);
+    const wsSocket = new WebSocketSocket(this, socket, info);
+    wsSocket.id = Math.random();
+    this.sockets.push(wsSocket);
 
-    socket.on("message", request => {
-      try {
-        request = JSON.parse(request);
-        this.emit(socket, request.event, request.data);
-      } catch (err) {
-        this.emit(socket, request, null);
-      }
-    });
+    this.emit(socket, "connection", info);
+  }
+
+  removeSocket(id) {
+    this.sockets.splice(this.sockets.findIndex(socket => socket.id === id), 1);
   }
 
   on(event, callback) {
     if (!this.events[event]) {
       this.events[event] = [];
     }
-    const index = this.events[event].length;
-    this.events[event].push(callback);
+    const id = Math.random();
+    this.events[event].push({id, callback});
 
-    return {off: () => this.events[event].splice(index, 1)}
+    return {off: () => this.events[event].splice(this.events[event].findIndex(event => event.id === id), 1)}
   }
 
   off(event) {
@@ -53,7 +78,7 @@ class WebSocketServer {
     const eventArray = this.events[event];
     if (eventArray) {
       for (let i = 0; i < eventArray.length; i++) {
-        const callback = eventArray[i];
+        const {callback} = eventArray[i];
         if (typeof callback === "function") {
           callback(data, this.buildResponse(socket));
         }
