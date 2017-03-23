@@ -25,7 +25,7 @@ class WebSocketSocket {
 class WebSocketServer {
   constructor(options) {
     this.events = {};
-    this.sockets = [];
+    this.sockets = {};
 
     this.server = new (require("ws")).Server(options);
     this.server.on("connection", socket => this.onConnection(socket));
@@ -49,21 +49,25 @@ class WebSocketServer {
     }
 
     const wsSocket = new WebSocketSocket(this, socket, info);
-    wsSocket.id = Math.random();
-    this.sockets.push(wsSocket);
+    wsSocket.id = this.uuid();
+    this.sockets[wsSocket.id] = wsSocket;
 
-    this.emit(socket, "connection", info);
+    this.emit(socket, "connection", {info, id: wsSocket.id});
   }
 
   removeSocket(id) {
-    this.sockets.splice(this.sockets.findIndex(socket => socket.id === id), 1);
+    delete this.sockets[id];
+  }
+
+  getSocket(id) {
+    return this.buildResponse(this.sockets[id].socket);
   }
 
   on(event, callback) {
     if (!this.events[event]) {
       this.events[event] = [];
     }
-    const id = Math.random();
+    const id = this.uuid();
     this.events[event].push({id, callback});
 
     return {off: () => this.events[event].splice(this.events[event].findIndex(event => event.id === id), 1)}
@@ -122,6 +126,10 @@ class WebSocketServer {
       broadcast: (event, data) => this.broadcast(socket, event, data),
       broadcastOthers: (event, data) => this.broadcast(socket, event, data, true)
     };
+  }
+
+  uuid() {
+   return (Math.random().toString(36)+'00000000000000000').slice(2, 16);
   }
 }
 
