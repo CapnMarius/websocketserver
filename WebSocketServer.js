@@ -12,13 +12,10 @@ class WebSocketSocket {
       }
     });
 
-    this.watchdogInterval = setInterval(() => {
-      if (socket.readyState !== 1) {
-        clearInterval(this.watchdogInterval);
-        this.server.emit(socket, "close", {id: this.id});
+    socket.on("close", (code, reason) => {
         this.server.removeSocket(this.id);
-      }
-    }, 1000);
+        this.server.emit(socket, "close", {id: this.id, code, reason});
+    });
   }
 }
 
