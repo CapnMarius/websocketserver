@@ -37,14 +37,6 @@ class WebSocketServer {
       params: this.parseParams(socket.upgradeReq.url)
     };
 
-    if (typeof this.verification === "function") {
-      if (!this.verification(info)) {
-        this.send("connected", {error: "rejected"});
-        socket.close();
-        return;
-      }
-    }
-
     const wsSocket = new WebSocketSocket(this, socket, info);
     wsSocket.id = this.uuid();
     this.sockets[wsSocket.id] = wsSocket;
@@ -98,10 +90,6 @@ class WebSocketServer {
         client.send(string)
       }
     });
-  }
-
-  acceptConnection(callback) {
-    this.verification = callback;
   }
 
   parseParams(url) {
